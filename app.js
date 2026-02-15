@@ -240,7 +240,14 @@ async function loadAndPlotFromRoot() {
 
   if (plotted > 0) {
     alert(`完了：センサー番号フォルダ単位で ${plotted} 本のピンを表示しました！`);
-    document.getElementById("exportKML").disabled = false; // ★追加
+
+    // ★ ここが超重要
+    const exportBtn = document.getElementById("exportKML");
+    if (exportBtn) {
+      exportBtn.disabled = false;
+      console.log("KMLボタンを有効化しました");
+    }
+
     map.setCenter(KUMAGAWA_CENTER);
     map.setZoom(9);
   } else {
@@ -295,3 +302,4 @@ window.addEventListener("load", () => {
   const btn = document.getElementById("exportKML");
   if (btn) btn.addEventListener("click", exportKML);
 });
+
