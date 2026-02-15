@@ -1,3 +1,6 @@
+// --- KML書き出し用データ保存 ---
+let sensorDataForExport = [];
+
 // ==============================
 // あなたが埋めるのはこの2つだけ
 // ==============================
@@ -154,6 +157,7 @@ async function loadAndPlotFromRoot() {
   }
 
   clearMarkers();
+  sensorDataForExport = []; // ★追加：KML用データをリセット
   noGpsItems = [];
   renderNoGps();
 
@@ -197,6 +201,14 @@ async function loadAndPlotFromRoot() {
         map,
         title: `${river.name} / ${sensor.name}`,
       });
+      // ★追加：KML書き出し用に「センサー1点=1行」保存
+      sensorDataForExport.push({
+        name: `${river.name} / ${sensor.name}`,
+        lat,
+        lng,
+        // MyMapsで見たときに役立つように、DriveフォルダURLを説明に入れる
+        description: sensor.webViewLink ? sensor.webViewLink : ""
+      });
 
       const dateText = hit.createdTime ? new Date(hit.createdTime).toLocaleString("ja-JP") : "日時不明";
       const thumb = hit.thumbnailLink
@@ -228,9 +240,58 @@ async function loadAndPlotFromRoot() {
 
   if (plotted > 0) {
     alert(`完了：センサー番号フォルダ単位で ${plotted} 本のピンを表示しました！`);
+    document.getElementById("exportKML").disabled = false; // ★追加
     map.setCenter(KUMAGAWA_CENTER);
     map.setZoom(9);
   } else {
     alert("GPS付きの写真が見つかりませんでした。「GPSなし写真」を確認してください。");
   }
 }
+
+// ==============================
+// KML 書き出し
+// ==============================
+function exportKML() {
+  if (!sensorDataForExport || sensorDataForExport.length === 0) {
+    alert("エクスポートするデータがありません（先に②読み込みを実行してください）");
+    return;
+  }
+
+  // KMLは「経度,緯度,高度」の順番なので注意
+  const placemarks = sensorDataForExport.map(s => {
+    const desc = s.description ? escapeHtml(s.description) : "";
+    return `
+    <Placemark>
+      <name>${escapeHtml(s.name)}</name>
+      <description><![CDATA[${desc}]]></description>
+      <Point>
+        <coordinates>${s.lng},${s.lat},0</coordinates>
+      </Point>
+    </Placemark>`;
+  }).join("");
+
+  const kml =
+`<?xml version="1.0" encoding="UTF-8"?>
+<kml xmlns="http://www.opengis.net/kml/2.2">
+  <Document>
+    <name>kumagawa-sensors</name>
+    ${placemarks}
+  </Document>
+</kml>`;
+
+  const blob = new Blob([kml], { type: "application/vnd.google-earth.kml+xml" });
+  const url = URL.createObjectURL(blob);
+
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = "kumagawa-sensors.kml";
+  a.click();
+
+  URL.revokeObjectURL(url);
+}
+
+// ボタンにクリックイベントを紐付け
+window.addEventListener("load", () => {
+  const btn = document.getElementById("exportKML");
+  if (btn) btn.addEventListener("click", exportKML);
+});
